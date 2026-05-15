@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    ports:
+      - "8090:8080"
+    volumes:
+      - searxng_data:/etc/searxng
+    environment:
+      - BASE_URL=http://localhost:8090/
+      - SEARXNG_SETTINGS_PATH=/etc/searxng
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - culinary-network
+
+  culinary-trend-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: culinary-trend-mcp
+    depends_on:
+      searxng:
+        condition: service_healthy
+    environment:
+      - SEARXNG_URL=http://searxng:8080
+      - LOG_LEVEL=INFO
+      - DATABASE_PATH=/data/culinary_trends.db
+    volumes:
+      - mcp_data:/data
+    ports:
+      - "8091:8091"
+    restart: unless-stopped
+    networks:
+      - culinary-network
+    command: python mcp_server.py
+
+volumes:
+  searxng_data:
+    driver: local
+  mcp_data:
+    driver: local
+
+networks:
+  culinary-network:
+    driver: bridge
